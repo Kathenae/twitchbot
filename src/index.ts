@@ -7,10 +7,9 @@ dotenv.configured()
 // Other imports that require process.env
 import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
-import { authorizationQueue, requestCredentials } from './services/twitch-auth';
+import { authorizationQueue } from './services/twitch-auth';
 import { TwitchIRC } from './services/twitch-irc';
-import database from './services/database';
-import commands, { CommandHandler } from './commands';
+import commands from './commands';
 
 async function listen(channel: string) {
   const irc = await TwitchIRC.create()
@@ -28,6 +27,7 @@ async function listen(channel: string) {
       const handle = commands[command]
       const args = parts.slice(1)
       const argStr = args.reduce((msg, txt) => msg + ' ' + txt, '')
+      console.log(`Handling !${command} from ${message.username}`)
       handle({ message: message, args: args, argStr: argStr, irc: irc })
     } else {
       console.log(`Unrecognized command ${command}`)
