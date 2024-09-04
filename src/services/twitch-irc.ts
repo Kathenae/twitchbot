@@ -1,3 +1,4 @@
+import { addContextLine } from "../commands/chat"
 import { requestCredentials } from "./twitch-auth"
 import { wait } from "./utility"
 import { IRCMessage, parse } from 'irc-message-ts'
@@ -21,23 +22,24 @@ type OnChatHandler = (message: ChatMessage) => void
 
 export class TwitchIRC extends WebSocket {
     channel: string | null
+    nickname: string | null
     onchat: OnChatHandler | null
 
     constructor(host: string) {
         super(host)
         this.channel = null
+        this.nickname = null
         this.onchat = null
 
         this.onmessage = (event) => {
             this._keepAlive(event.data)
-            
             const messages = this.parse(event.data)
-            if(messages.first.command == 'PRIVMSG' && this.onchat) {
+            if (messages.first.command == 'PRIVMSG' && this.onchat) {
                 const id = messages.first.tags['id']
                 const username = messages.first.tags['display-name']
                 const userId = messages.first.tags['user-id']
                 const text = messages.first.trailing
-                this.onchat({username, id, text, userId})
+                this.onchat({ username, id, text, userId })
             }
         }
     }
@@ -45,7 +47,7 @@ export class TwitchIRC extends WebSocket {
     parse(text: string) {
         const rawMessages = text.split('\r\n')
         const messages: { first: IRCMessage, all: IRCMessage[] } = {
-            first: {command: '', param: '', params: [], prefix: '', raw: '', tags: {}, trailing: ''},
+            first: { command: '', param: '', params: [], prefix: '', raw: '', tags: {}, trailing: '' },
             all: []
         }
 
@@ -74,26 +76,26 @@ export class TwitchIRC extends WebSocket {
     }
 
     private emit(options: { timeout?: number, msg: string[] | string }) {
-        let timeout : NodeJS.Timeout
+        let timeout: NodeJS.Timeout
 
         return new Promise<IRCResponse>((resolve, reject) => {
 
             const onmessage = (event: MessageEvent) => {
                 const result = this.parse(event.data)
-                if(timeout){
+                if (timeout) {
                     clearTimeout(timeout)
                 }
                 this.removeEventListener("message", onmessage)
                 this.removeEventListener("error", onerror)
-                resolve({ 
-                    ...event, 
-                    messages: result.all, 
-                    message: result.first  
+                resolve({
+                    ...event,
+                    messages: result.all,
+                    message: result.first
                 })
             }
 
             const onerror = (error: any) => {
-                if(timeout){
+                if (timeout) {
                     clearTimeout(timeout)
                 }
                 this.removeEventListener("message", onmessage)
@@ -126,7 +128,7 @@ export class TwitchIRC extends WebSocket {
     private async authenticate(nickname: string, access_token: string, capacities: string[]) {
         const capStr = `${capacities.reduce(((cap, cur) => `${cap} ${cur}`), '')}`
         let response = await this.emit({ msg: [`CAP REQ :${capStr}`] })
-        
+
         if (response.message.command == 'NAK') {
             return false
         }
@@ -144,7 +146,7 @@ export class TwitchIRC extends WebSocket {
     private async join(channel: string) {
         try {
             let response = await this.emit({
-                msg:  `JOIN #${channel}`,
+                msg: `JOIN #${channel}`,
                 timeout: 10
             })
             const joined = response.message.command == IRC_JOIN
@@ -156,26 +158,26 @@ export class TwitchIRC extends WebSocket {
     }
 
     async chat(message: string, wait_time?: number) {
+        await wait(wait_time ?? 1)
+
+        addContextLine(this.channel!, `${this.nickname}: ${message}`)
         const response = await this.emit({
             msg: `PRIVMSG #${this.channel} :${message}`
         })
-        if (wait_time) {
-            await wait(wait_time)
-        }
         return response.messages;
     }
 
     static async create() {
-        return new Promise<TwitchIRC>(function(resolve, reject) {
+        return new Promise<TwitchIRC>(function (resolve, reject) {
             var server = new TwitchIRC("wss://irc-ws.chat.twitch.tv:443")
-    
-            server.onopen = function() {
+
+            server.onopen = function () {
                 resolve(server);
             };
-            server.onerror = function(err) {
+            server.onerror = function (err) {
                 reject(err);
             };
-    
+
         });
     }
 
@@ -183,7 +185,7 @@ export class TwitchIRC extends WebSocket {
         const credentials = await requestCredentials()
         if (!credentials) {
             return
-        }     
+        }
         const authenticated = await this.authenticate(
             credentials.nickname,
             credentials.access_token,
@@ -205,6 +207,8 @@ export class TwitchIRC extends WebSocket {
         } else {
             console.log(`Joined the #${channel} channel`)
         }
+
+        this.nickname = credentials.nickname
 
         this.onchat = onchat
     }

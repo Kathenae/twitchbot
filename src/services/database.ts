@@ -5,7 +5,8 @@ const path = process.env.APP_DB_PATH!;
 const db = new JsonDB(new Config(path, true, true))
 
 async function put<T>(path: string, data: T) {
-    db.push(path, data);
+    await db.push(path, data);
+    return
 }
 
 async function get<T>(path: string) {

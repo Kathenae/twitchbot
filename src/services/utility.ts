@@ -10,3 +10,7 @@ export async function wait(seconds: number) {
         }, seconds * 1000)
     })
 }
+
+export function pick<T>(list: Array<T>) : T {
+    return list[Math.floor(Math.random() * list.length)]
+}

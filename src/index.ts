@@ -10,6 +10,7 @@ import { Hono } from 'hono'
 import { authorizationQueue } from './services/twitch-auth';
 import { TwitchIRC } from './services/twitch-irc';
 import commands from './commands';
+import { addContextLine } from './commands/chat';
 
 async function listen(channel: string) {
   const irc = await TwitchIRC.create()
@@ -17,7 +18,11 @@ async function listen(channel: string) {
 
     const parts = message.text.split(" ")
     let command = `${parts[0]}`.toLowerCase()
-    
+
+    const logEntry = `${message.username}: ${message.text}`
+    console.log(logEntry)
+    addContextLine(irc.channel!, logEntry)
+
     if(command.startsWith('!') == false) {
       return // Not a command, don't care
     }
@@ -30,7 +35,7 @@ async function listen(channel: string) {
       console.log(`Handling !${command} from ${message.username}`)
       handle({ message: message, args: args, argStr: argStr, irc: irc })
     } else {
-      console.log(`Unrecognized command ${command}`)
+      // irc.chat(`Unrecognized command "${command}"`)
     }
   })
 }
